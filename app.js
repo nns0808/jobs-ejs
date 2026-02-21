@@ -1,36 +1,28 @@
 require("dotenv").config();
-
 const express = require("express");
 require("express-async-errors");
 
 const app = express();
-
 app.set("view engine", "ejs");
-
 app.use(express.urlencoded({ extended: true }));
 
+// ----- Sessions -----
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
-const url = process.env.MONGO_URI;
 
 const store = new MongoDBStore({
-  uri: url,
+  uri: process.env.MONGO_URI,
   collection: "mySessions",
 });
 
-store.on("error", function (error) {
-  console.log(error);
-});
+store.on("error", (error) => console.log(error));
 
 const sessionParms = {
   secret: process.env.SESSION_SECRET,
   resave: true,
   saveUninitialized: true,
-  store: store,
-  cookie: {
-    secure: false,       // true only in production with HTTPS
-    sameSite: "strict",
-  },
+  store,
+  cookie: { secure: false, sameSite: "strict" },
 };
 
 if (app.get("env") === "production") {
@@ -39,51 +31,47 @@ if (app.get("env") === "production") {
 }
 
 app.use(session(sessionParms));
+
+// ----- Flash -----
 app.use(require("connect-flash")());
 
-app.use((req, res, next) => {
-  res.locals.errors = req.flash("error");
-  res.locals.info = req.flash("info");
-  next();
-});
+// ----- Passport -----
+const passport = require("passport");
+const passportInit = require("./passport/passportInit");
+passportInit();
 
-app.get("/secretWord", (req, res) => {
-  if (!req.session.secretWord) {
-    req.session.secretWord = "syzygy";
-  }
-  res.locals.info = req.flash("info");
-  res.locals.errors = req.flash("error");
-  res.render("secretWord", { secretWord: req.session.secretWord });
-});
+app.use(passport.initialize());
+app.use(passport.session());
 
+// ----- Store locals AFTER Passport -----
+app.use(require("./middleware/storeLocals"));
 
-app.post("/secretWord", (req, res) => {
-  if (req.body.secretWord.toUpperCase()[0] == "P") {
-    req.flash("error", "That word won't work!");
-    req.flash("error", "You can't use words that start with p.");
-  } else {
-    req.session.secretWord = req.body.secretWord;
-    req.flash("info", "The secret word was changed.");
-  }
+// ----- Routes -----
+app.get("/", (req, res) => res.render("index"));
 
-  res.redirect("/secretWord");
-});
+app.use("/sessions", require("./routes/sessionRoutes"));
 
+// Protect and use secretWord routes
+const secretWordRouter = require("./routes/secretWord");
+const auth = require("./middleware/auth");
+app.use("/secretWord", auth, secretWordRouter);
 
-app.use((req, res) => {
-  res.status(404).send(`That page (${req.url}) was not found.`);
-});
+// ----- Error handlers -----
+app.use((req, res) =>
+  res.status(404).send(`That page (${req.url}) was not found.`)
+);
 
 app.use((err, req, res, next) => {
   console.log(err);
   res.status(500).send(err.message);
 });
 
-
+// ----- Start server -----
 const port = process.env.PORT || 3000;
 
 const start = async () => {
   try {
+    await require("./db/connect")(process.env.MONGO_URI);
     app.listen(port, () =>
       console.log(`Server is listening on port ${port}...`)
     );
