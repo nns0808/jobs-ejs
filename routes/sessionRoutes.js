@@ -1,19 +1,22 @@
 const express = require("express");
 const router = express.Router();
 const passport = require("passport");
+const csrf = require("host-csrf");
+const User = require("../models/User"); 
+const { registerDo, logoff } = require("../controllers/sessionController");
 
-const {
-  logonShow,
-  registerShow,
-  registerDo,
-  logoff,
-} = require("../controllers/sessionController");
+const csrfMiddleware = csrf.csrf();
 
 // Logon
+
 router
   .route("/logon")
-  .get(logonShow)
+  .get((req, res) => {
+    const csrfToken = csrf.refreshToken(req, res); 
+    res.render("logon", { csrfToken }); 
+  })
   .post(
+    csrfMiddleware, 
     passport.authenticate("local", {
       successRedirect: "/",
       failureRedirect: "/sessions/logon",
@@ -21,10 +24,17 @@ router
     })
   );
 
-// Register
-router.route("/register").get(registerShow).post(registerDo);
+//Register
+
+router
+  .route("/register")
+  .get((req, res) => {
+    const csrfToken = csrf.refreshToken(req, res); 
+    res.render("register", { csrfToken }); 
+  })
+  .post(csrfMiddleware, registerDo); 
 
 // Logoff
-router.route("/logoff").post(logoff);
+router.route("/logoff").post(csrfMiddleware, logoff);
 
 module.exports = router;
