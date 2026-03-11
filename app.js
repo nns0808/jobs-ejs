@@ -4,9 +4,13 @@ require("express-async-errors");
 
 const app = express();
 app.set("view engine", "ejs");
-app.use(express.urlencoded({ extended: true }));
 
-// ----- Sessions -----
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+const cookieParser = require("cookie-parser");
+app.use(cookieParser(process.env.SESSION_SECRET));
+
 const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 
@@ -32,10 +36,10 @@ if (app.get("env") === "production") {
 
 app.use(session(sessionParms));
 
-// ----- Flash -----
+// Flash
 app.use(require("connect-flash")());
 
-// ----- Passport -----
+// Passport
 const passport = require("passport");
 const passportInit = require("./passport/passportInit");
 passportInit();
@@ -43,20 +47,30 @@ passportInit();
 app.use(passport.initialize());
 app.use(passport.session());
 
-// ----- Store locals AFTER Passport -----
+// store local
 app.use(require("./middleware/storeLocals"));
 
-// ----- Routes -----
+// csrf
+const csrfTokenMiddleware = require("./middleware/csrfToken");
+app.use(csrfTokenMiddleware);
+
+// auth middleware
+const auth = require("./middleware/auth");
+
+// routes
 app.get("/", (req, res) => res.render("index"));
 
 app.use("/sessions", require("./routes/sessionRoutes"));
 
-// Protect and use secretWord routes
+// Secret word 
 const secretWordRouter = require("./routes/secretWord");
-const auth = require("./middleware/auth");
 app.use("/secretWord", auth, secretWordRouter);
 
-// ----- Error handlers -----
+// Jobs 
+const jobsRouter = require("./routes/jobs");
+app.use("/jobs", auth, jobsRouter);
+
+// error handler
 app.use((req, res) =>
   res.status(404).send(`That page (${req.url}) was not found.`)
 );
@@ -66,7 +80,6 @@ app.use((err, req, res, next) => {
   res.status(500).send(err.message);
 });
 
-// ----- Start server -----
 const port = process.env.PORT || 3000;
 
 const start = async () => {

