@@ -2,6 +2,11 @@ require("dotenv").config();
 const express = require("express");
 require("express-async-errors");
 
+let mongoURL = process.env.MONGO_URI;
+if (process.env.NODE_ENV === "test") {
+  mongoURL = process.env.MONGO_URI_TEST;
+}
+
 const app = express();
 app.set("view engine", "ejs");
 app.use(express.urlencoded({ extended: true }));
@@ -11,7 +16,7 @@ const session = require("express-session");
 const MongoDBStore = require("connect-mongodb-session")(session);
 
 const store = new MongoDBStore({
-  uri: process.env.MONGO_URI,
+  uri: mongoURL,
   collection: "mySessions",
 });
 
@@ -46,6 +51,15 @@ app.use(passport.session());
 // ----- Store locals AFTER Passport -----
 app.use(require("./middleware/storeLocals"));
 
+app.use((req, res, next) => {
+  if (req.path == "/multiply") {
+    res.set("Content-Type", "application/json");
+  } else {
+    res.set("Content-Type", "text/html");
+  }
+  next();
+});
+
 // ----- Routes -----
 app.get("/", (req, res) => res.render("index"));
 
@@ -55,6 +69,16 @@ app.use("/sessions", require("./routes/sessionRoutes"));
 const secretWordRouter = require("./routes/secretWord");
 const auth = require("./middleware/auth");
 app.use("/secretWord", auth, secretWordRouter);
+
+app.get("/multiply", (req, res) => {
+  const result = req.query.first * req.query.second;
+  if (result.isNaN) {
+    result = "NaN";
+  } else if (result == null) {
+    result = "null";
+  }
+  res.json({ result: result });
+});
 
 // ----- Error handlers -----
 app.use((req, res) =>
@@ -68,12 +92,11 @@ app.use((err, req, res, next) => {
 
 // ----- Start server -----
 const port = process.env.PORT || 3000;
-
-const start = async () => {
+const start = () => {
   try {
-    await require("./db/connect")(process.env.MONGO_URI);
-    app.listen(port, () =>
-      console.log(`Server is listening on port ${port}...`)
+    require("./db/connect")(mongoURL);
+    return app.listen(port, () =>
+      console.log(`Server is listening on port ${port}...`),
     );
   } catch (error) {
     console.log(error);
@@ -81,3 +104,5 @@ const start = async () => {
 };
 
 start();
+
+module.exports = { app };
