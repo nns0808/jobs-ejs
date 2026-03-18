@@ -1,14 +1,21 @@
 const User = require("../models/User");
 const parseValidationErrors = require("../utils/parseValidationErrs");
+const csrf = require("host-csrf");
 
+// Show registration page
 const registerShow = (req, res) => {
-  res.render("register");
+  // Generate CSRF token for this session
+  const csrfToken = csrf.refreshToken(req, res);
+  console.log("New CSRF token:", csrfToken);
+
+  res.render("register", { csrfToken });
 };
 
+// Handle registration
 const registerDo = async (req, res, next) => {
   if (req.body.password !== req.body.password1) {
     req.flash("error", "The passwords entered do not match.");
-    return res.render("register");
+    return res.redirect("/sessions/register");
   }
 
   try {
@@ -22,26 +29,35 @@ const registerDo = async (req, res, next) => {
       return next(e);
     }
 
-    return res.render("register");
+    return res.redirect("/sessions/register");
   }
 
   req.flash("info", "Registration successful. You can now log in.");
   res.redirect("/sessions/logon");
 };
 
+// Logoff user
 const logoff = (req, res) => {
+  // Clear CSRF token on logoff
+  csrf.clearToken(req, res);
+
   req.session.destroy((err) => {
     if (err) console.log(err);
     res.redirect("/");
   });
 };
 
+// Show logon page
 const logonShow = (req, res) => {
   if (req.user) {
     return res.redirect("/");
   }
 
-  res.render("logon");
+  // Generate CSRF token for login page
+  const csrfToken = csrf.refreshToken(req, res);
+  console.log("New CSRF token for logon:", csrfToken);
+
+  res.render("logon", { csrfToken });
 };
 
 module.exports = {

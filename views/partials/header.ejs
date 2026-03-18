@@ -3,20 +3,30 @@
 <% if (user) { %>
   <p>User <%= user.name %> is logged on.</p>
 
+  
   <form method="POST" action="/sessions/logoff">
+    <input type="hidden" name="_csrf" value="<%= csrfToken %>">
     <button>Logoff</button>
   </form>
+<% } else { %>
+  <p>You are not logged on.</p>
+  <a href="/sessions/logon"><button type="button">Logon</button></a>
+  <a href="/sessions/register"><button type="button">Register</button></a>
 <% } %>
 
-<% if (errors) {
-  errors.forEach((err) => { %>
-    <div>Error: <%= err %></div>
-<% }) } %>
 
-<% if (info) {
-  info.forEach((msg) => { %>
+<% if (errors && errors.length) { %>
+  <% errors.forEach((err) => { %>
+    <div>Error: <%= err %></div>
+  <% }) %>
+<% } %>
+
+
+<% if (info && info.length) { %>
+  <% info.forEach((msg) => { %>
     <div>Info: <%= msg %></div>
-<% }) } %>
+  <% }) %>
+<% } %>
 
 <hr />
 
